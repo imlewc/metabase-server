@@ -79,6 +79,23 @@ On Windows: `%APPDATA%/Claude/claude_desktop_config.json`
 
 Note: You can also set these environment variables in your system instead of in the config file if you prefer.
 
+### Installing at Simon
+
+```JSON
+    "metabase-server": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@simon/metabase-server"
+      ],
+      "env": {
+        "METABASE_URL": "https://metabase.simondata.com",
+        "METABASE_USERNAME": "YOUR_EMAIL",
+        "METABASE_PASSWORD": "YOUR_PASSWORD"
+      }
+    }
+```
+
 ### Installing via Smithery
 
 To install metabase-server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@imlewc/metabase-server):

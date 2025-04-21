@@ -1,8 +1,8 @@
 {
-  "name": "metabase-server",
+  "name": "@simon/metabase-server",
   "version": "0.1.0",
-  "description": "A Model Context Protocol server",
-  "private": true,
+  "description": "A Model Context Protocol server for Metabase",
+  "private": false,
   "type": "module",
   "bin": {
     "metabase-server": "./build/index.js"
