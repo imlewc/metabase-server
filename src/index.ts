@@ -411,6 +411,94 @@ class MetabaseServer {
               },
               required: ["database_id", "query"]
             }
+          },
+          {
+            name: "create_card",
+            description: "Create a new Metabase question (card).",
+            inputSchema: {
+              type: "object",
+              properties: {
+                name: { type: "string", description: "Name of the card" },
+                dataset_query: { type: "object", description: "The query for the card (e.g., MBQL or native query)" },
+                display: { type: "string", description: "Display type (e.g., 'table', 'line', 'bar')" },
+                visualization_settings: { type: "object", description: "Settings for the visualization" },
+                collection_id: { type: "number", description: "Optional ID of the collection to save the card in" },
+                description: { type: "string", description: "Optional description for the card" }
+              },
+              required: ["name", "dataset_query", "display", "visualization_settings"]
+            }
+          },
+          {
+            name: "update_card",
+            description: "Update an existing Metabase question (card).",
+            inputSchema: {
+              type: "object",
+              properties: {
+                card_id: { type: "number", description: "ID of the card to update" },
+                name: { type: "string", description: "New name for the card" },
+                dataset_query: { type: "object", description: "New query for the card" },
+                display: { type: "string", description: "New display type" },
+                visualization_settings: { type: "object", description: "New visualization settings" },
+                collection_id: { type: "number", description: "New collection ID" },
+                description: { type: "string", description: "New description" },
+                archived: { type: "boolean", description: "Set to true to archive the card" }
+              },
+              required: ["card_id"]
+            }
+          },
+          {
+            name: "delete_card",
+            description: "Delete a Metabase question (card).",
+            inputSchema: {
+              type: "object",
+              properties: {
+                card_id: { type: "number", description: "ID of the card to delete" },
+                hard_delete: { type: "boolean", description: "Set to true for hard delete, false (default) for archive", default: false }
+              },
+              required: ["card_id"]
+            }
+          },
+          {
+            name: "create_dashboard",
+            description: "Create a new Metabase dashboard.",
+            inputSchema: {
+              type: "object",
+              properties: {
+                name: { type: "string", description: "Name of the dashboard" },
+                description: { type: "string", description: "Optional description for the dashboard" },
+                parameters: { type: "array", description: "Optional parameters for the dashboard", items: { type: "object" } },
+                collection_id: { type: "number", description: "Optional ID of the collection to save the dashboard in" }
+              },
+              required: ["name"]
+            }
+          },
+          {
+            name: "update_dashboard",
+            description: "Update an existing Metabase dashboard.",
+            inputSchema: {
+              type: "object",
+              properties: {
+                dashboard_id: { type: "number", description: "ID of the dashboard to update" },
+                name: { type: "string", description: "New name for the dashboard" },
+                description: { type: "string", description: "New description for the dashboard" },
+                parameters: { type: "array", description: "New parameters for the dashboard", items: { type: "object" } },
+                collection_id: { type: "number", description: "New collection ID" },
+                archived: { type: "boolean", description: "Set to true to archive the dashboard" }
+              },
+              required: ["dashboard_id"]
+            }
+          },
+          {
+            name: "delete_dashboard",
+            description: "Delete a Metabase dashboard.",
+            inputSchema: {
+              type: "object",
+              properties: {
+                dashboard_id: { type: "number", description: "ID of the dashboard to delete" },
+                hard_delete: { type: "boolean", description: "Set to true for hard delete, false (default) for archive", default: false }
+              },
+              required: ["dashboard_id"]
+            }
           }
         ]
       };
@@ -531,6 +619,160 @@ class MetabaseServer {
                 text: JSON.stringify(response.data, null, 2)
               }]
             };
+          }
+
+          case "create_card": {
+            const { name, dataset_query, display, visualization_settings, collection_id, description } = request.params?.arguments || {};
+            if (!name || !dataset_query || !display || !visualization_settings) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "Missing required fields for create_card: name, dataset_query, display, visualization_settings"
+              );
+            }
+            const createCardBody: any = {
+              name,
+              dataset_query,
+              display,
+              visualization_settings,
+            };
+            if (collection_id !== undefined) createCardBody.collection_id = collection_id;
+            if (description !== undefined) createCardBody.description = description;
+
+            const response = await this.axiosInstance.post('/api/card', createCardBody);
+            return {
+              content: [{
+                type: "text",
+                text: JSON.stringify(response.data, null, 2)
+              }]
+            };
+          }
+
+          case "update_card": {
+            const { card_id, ...updateFields } = request.params?.arguments || {};
+            if (!card_id) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "Card ID is required for update_card"
+              );
+            }
+            if (Object.keys(updateFields).length === 0) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "No fields provided for update_card"
+              );
+            }
+            const response = await this.axiosInstance.put(`/api/card/${card_id}`, updateFields);
+            return {
+              content: [{
+                type: "text",
+                text: JSON.stringify(response.data, null, 2)
+              }]
+            };
+          }
+
+          case "delete_card": {
+            const { card_id, hard_delete = false } = request.params?.arguments || {};
+            if (!card_id) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "Card ID is required for delete_card"
+              );
+            }
+
+            if (hard_delete) {
+              await this.axiosInstance.delete(`/api/card/${card_id}`);
+              return {
+                content: [{
+                  type: "text",
+                  text: `Card ${card_id} permanently deleted.`
+                }]
+              };
+            } else {
+              // Soft delete (archive)
+              const response = await this.axiosInstance.put(`/api/card/${card_id}`, { archived: true });
+              return {
+                content: [{
+                  type: "text",
+                  // Metabase might return the updated card object or just a success status.
+                  // If response.data is available and meaningful, include it. Otherwise, a generic success message.
+                  text: response.data ? `Card ${card_id} archived. Details: ${JSON.stringify(response.data, null, 2)}` : `Card ${card_id} archived.`
+                }]
+              };
+            }
+          }
+
+          case "create_dashboard": {
+            const { name, description, parameters, collection_id } = request.params?.arguments || {};
+            if (!name) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "Missing required field for create_dashboard: name"
+              );
+            }
+            const createDashboardBody: any = { name };
+            if (description !== undefined) createDashboardBody.description = description;
+            if (parameters !== undefined) createDashboardBody.parameters = parameters;
+            if (collection_id !== undefined) createDashboardBody.collection_id = collection_id;
+
+            const response = await this.axiosInstance.post('/api/dashboard', createDashboardBody);
+            return {
+              content: [{
+                type: "text",
+                text: JSON.stringify(response.data, null, 2)
+              }]
+            };
+          }
+
+          case "update_dashboard": {
+            const { dashboard_id, ...updateFields } = request.params?.arguments || {};
+            if (!dashboard_id) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "Dashboard ID is required for update_dashboard"
+              );
+            }
+            if (Object.keys(updateFields).length === 0) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "No fields provided for update_dashboard"
+              );
+            }
+            const response = await this.axiosInstance.put(`/api/dashboard/${dashboard_id}`, updateFields);
+            return {
+              content: [{
+                type: "text",
+                text: JSON.stringify(response.data, null, 2)
+              }]
+            };
+          }
+
+          case "delete_dashboard": {
+            const { dashboard_id, hard_delete = false } = request.params?.arguments || {};
+            if (!dashboard_id) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "Dashboard ID is required for delete_dashboard"
+              );
+            }
+
+            if (hard_delete) {
+              await this.axiosInstance.delete(`/api/dashboard/${dashboard_id}`);
+              return {
+                content: [{
+                  type: "text",
+                  text: `Dashboard ${dashboard_id} permanently deleted.`
+                }]
+              };
+            } else {
+              // Soft delete (archive)
+              const response = await this.axiosInstance.put(`/api/dashboard/${dashboard_id}`, { archived: true });
+               return {
+                content: [{
+                  type: "text",
+                  text: response.data ? `Dashboard ${dashboard_id} archived. Details: ${JSON.stringify(response.data, null, 2)}` : `Dashboard ${dashboard_id} archived.`
+                }]
+              };
+            }
           }
           
           default:
