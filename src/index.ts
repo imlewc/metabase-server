@@ -51,9 +51,12 @@ class McpError extends Error {
 const METABASE_URL = process.env.METABASE_URL;
 const METABASE_USERNAME = process.env.METABASE_USERNAME;
 const METABASE_PASSWORD = process.env.METABASE_PASSWORD;
+const METABASE_API_KEY = process.env.METABASE_API_KEY;
 
-if (!METABASE_URL || !METABASE_USERNAME || !METABASE_PASSWORD) {
-  throw new Error("METABASE_URL, METABASE_USERNAME, and METABASE_PASSWORD environment variables are required");
+if (!METABASE_URL || (!METABASE_API_KEY && (!METABASE_USERNAME || !METABASE_PASSWORD))) {
+  throw new Error(
+    "Either (METABASE_URL and METABASE_API_KEY) or (METABASE_URL, METABASE_USERNAME, and METABASE_PASSWORD) environment variables are required"
+  );
 }
 
 // 创建自定义 Schema 对象，使用 z.object
@@ -90,6 +93,20 @@ class MetabaseServer {
         "Content-Type": "application/json",
       },
     });
+
+    if (METABASE_API_KEY) {
+      this.logInfo('Using Metabase API Key for authentication.');
+      this.axiosInstance.defaults.headers.common['X-API-Key'] = METABASE_API_KEY;
+      this.sessionToken = "api_key_used"; // Indicate API key is in use
+    } else if (METABASE_USERNAME && METABASE_PASSWORD) {
+      this.logInfo('Using Metabase username/password for authentication.');
+      // Existing session token logic will apply
+    } else {
+      // This case should ideally be caught by the initial environment variable check
+      // but as a safeguard:
+      this.logError('Metabase authentication credentials not configured properly.', {});
+      throw new Error("Metabase authentication credentials not provided or incomplete.");
+    }
 
     this.setupResourceHandlers();
     this.setupToolHandlers();
@@ -148,11 +165,12 @@ class MetabaseServer {
    * 获取 Metabase 会话令牌
    */
   private async getSessionToken(): Promise<string> {
-    if (this.sessionToken) {
+    if (this.sessionToken) { // Handles both API key ("api_key_used") and actual session tokens
       return this.sessionToken;
     }
 
-    this.logInfo('Authenticating with Metabase...');
+    // This part should only be reached if using username/password and sessionToken is null
+    this.logInfo('Authenticating with Metabase using username/password...');
     try {
       const response = await this.axiosInstance.post('/api/session', {
         username: METABASE_USERNAME,
@@ -181,7 +199,9 @@ class MetabaseServer {
   private setupResourceHandlers() {
     this.server.setRequestHandler(ListResourcesRequestSchema, async (request) => {
       this.logInfo('Listing resources...', { requestStructure: JSON.stringify(request) });
-      await this.getSessionToken();
+      if (!METABASE_API_KEY) {
+        await this.getSessionToken();
+      }
 
       try {
         // 获取仪表板列表
@@ -235,7 +255,9 @@ class MetabaseServer {
     // 读取资源
     this.server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
       this.logInfo('Reading resource...', { requestStructure: JSON.stringify(request) });
-      await this.getSessionToken();
+      if (!METABASE_API_KEY) {
+        await this.getSessionToken();
+      }
 
       const uri = request.params?.uri;
       let match;
@@ -305,6 +327,7 @@ class MetabaseServer {
    * 设置工具处理程序
    */
   private setupToolHandlers() {
+    // No session token needed for listing tools, as it's static data
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       return {
         tools: [
@@ -395,7 +418,9 @@ class MetabaseServer {
 
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       this.logInfo('Calling tool...', { requestStructure: JSON.stringify(request) });
-      await this.getSessionToken();
+      if (!METABASE_API_KEY) {
+        await this.getSessionToken();
+      }
 
       try {
         switch (request.params?.name) {
