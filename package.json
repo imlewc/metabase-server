@@ -1,29 +1,7 @@
 {
-  "name": "metabase-server",
-  "version": "0.1.0",
-  "description": "A Model Context Protocol server",
-  "private": true,
-  "type": "module",
-  "bin": {
-    "metabase-server": "./build/index.js"
-  },
-  "files": [
-    "build"
-  ],
-  "scripts": {
-    "build": "tsc && node -e \"require('fs').chmodSync('build/index.js', '755')\" && mkdir -p dist && cp build/index.js dist/index.js",
-    "prepare": "npm run build",
-    "watch": "tsc --watch",
-    "inspector": "npx @modelcontextprotocol/inspector build/index.js"
-  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^0.6.1",
     "abort-controller": "^3.0.0",
-    "axios": "^1.8.1"
-  },
-  "devDependencies": {
-    "@types/axios": "^0.14.4",
-    "@types/node": "^20.17.22",
-    "typescript": "^5.3.3"
+    "axios": "^1.8.2"
   }
 }
