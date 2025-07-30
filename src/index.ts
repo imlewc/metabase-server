@@ -348,12 +348,8 @@ class MetabaseServer {
                 f: {
                   type: "string",
                   description: "Optional filter function, possible values: archived, table, database, using_model, bookmarked, using_segment, all, mine"
-                },
-                parameters: {
-                  type: "object",
-                  description: "Optional parameters for the query"
                 }
-              },
+              }
             }
           },
           {
