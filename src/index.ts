@@ -344,7 +344,12 @@ class MetabaseServer {
             description: "List all questions/cards in Metabase",
             inputSchema: {
               type: "object",
-              properties: {}
+              properties: {
+                f: {
+                  type: "string",
+                  description: "Optional filter function, possible values: archived, table, database, using_model, bookmarked, using_segment, all, mine"
+                }
+              }
             }
           },
           {
@@ -523,7 +528,8 @@ class MetabaseServer {
           }
 
           case "list_cards": {
-            const response = await this.axiosInstance.get('/api/card');
+            const f = request.params?.arguments?.f || "all";
+            const response = await this.axiosInstance.get(`/api/card?f=${f}`);
             return {
               content: [{
                 type: "text",

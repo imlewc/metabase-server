@@ -76,6 +76,10 @@ npm run watch
 ```
 
 ## Installation
+```bash
+# Oneliner, suitable for CI environment
+git clone https://github.com/imlewc/metabase-server.git && cd metabase-server && npm i && npm run build && npm link
+```
 
 To use with Claude Desktop, add the server config:
 
@@ -86,7 +90,7 @@ On Windows: `%APPDATA%/Claude/claude_desktop_config.json`
 {
   "mcpServers": {
     "metabase-server": {
-      "command": "/path/to/metabase-server/build/index.js",
+      "command": "metabase-server",
       "env": {
         "METABASE_URL": "https://your-metabase-instance.com",
         // Use API Key (preferred)
