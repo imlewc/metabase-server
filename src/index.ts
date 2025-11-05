@@ -27,6 +27,16 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import axios, { AxiosInstance } from "axios";
+import {
+  formatDatabases,
+  formatDashboards,
+  formatCards,
+  formatQueryResult,
+  formatDashboardCards,
+  formatCardResult,
+  formatGenericResponse
+} from "./formatters.js";
+import { logResponse } from "./response-logger.js";
 
 // 自定义错误枚举
 enum ErrorCode {
@@ -836,10 +846,11 @@ class MetabaseServer {
         switch (request.params?.name) {
           case "list_dashboards": {
             const response = await this.axiosInstance.get('/api/dashboard');
+            await logResponse('list_dashboards', request.params?.arguments, response.data);
             return {
               content: [{
                 type: "text",
-                text: JSON.stringify(response.data, null, 2)
+                text: formatDashboards(response.data)
               }]
             };
           }
@@ -847,20 +858,22 @@ class MetabaseServer {
           case "list_cards": {
             const f = request.params?.arguments?.f || "all";
             const response = await this.axiosInstance.get(`/api/card?f=${f}`);
+            await logResponse('list_cards', request.params?.arguments, response.data);
             return {
               content: [{
                 type: "text",
-                text: JSON.stringify(response.data, null, 2)
+                text: formatCards(response.data)
               }]
             };
           }
 
           case "list_databases": {
             const response = await this.axiosInstance.get('/api/database');
+            await logResponse('list_databases', request.params?.arguments, response.data);
             return {
               content: [{
                 type: "text",
-                text: JSON.stringify(response.data, null, 2)
+                text: formatDatabases(response.data)
               }]
             };
           }
@@ -900,11 +913,12 @@ class MetabaseServer {
                   ? [rawParameters]
                   : [];
             const response = await this.axiosInstance.post(`/api/card/${cardId}/query`, { parameters });
-            
+            await logResponse('execute_card', request.params?.arguments, response.data);
+
             return {
               content: [{
                 type: "text",
-                text: JSON.stringify(response.data, null, 2)
+                text: formatCardResult(response.data)
               }]
             };
           }
@@ -924,11 +938,12 @@ class MetabaseServer {
               response.data?.dashcards ??
               response.data?.cards ??
               [];
+            await logResponse('get_dashboard_cards', request.params?.arguments, dashcards);
 
             return {
               content: [{
                 type: "text",
-                text: JSON.stringify(dashcards, null, 2)
+                text: formatDashboardCards(dashcards)
               }]
             };
           }
@@ -937,21 +952,21 @@ class MetabaseServer {
             const databaseId = request.params?.arguments?.database_id;
             const query = request.params?.arguments?.query;
             const nativeParameters = request.params?.arguments?.native_parameters || [];
-            
+
             if (!databaseId) {
               throw new McpError(
                 ErrorCode.InvalidParams,
                 "Database ID is required"
               );
             }
-            
+
             if (!query) {
               throw new McpError(
                 ErrorCode.InvalidParams,
                 "SQL query is required"
               );
             }
-            
+
             // 构建查询请求体
             const queryData = {
               type: "native",
@@ -962,13 +977,14 @@ class MetabaseServer {
               parameters: nativeParameters,
               database: databaseId
             };
-            
+
             const response = await this.axiosInstance.post('/api/dataset', queryData);
-            
+            await logResponse('execute_query', request.params?.arguments, response.data);
+
             return {
               content: [{
                 type: "text",
-                text: JSON.stringify(response.data, null, 2)
+                text: formatQueryResult(response.data)
               }]
             };
           }
@@ -991,10 +1007,12 @@ class MetabaseServer {
             if (description !== undefined) createCardBody.description = description;
 
             const response = await this.axiosInstance.post('/api/card', createCardBody);
+            await logResponse('create_card', request.params?.arguments, response.data);
+
             return {
               content: [{
                 type: "text",
-                text: JSON.stringify(response.data, null, 2)
+                text: formatGenericResponse('Create Card', response.data)
               }]
             };
           }
@@ -1014,10 +1032,12 @@ class MetabaseServer {
               );
             }
             const response = await this.axiosInstance.put(`/api/card/${card_id}`, updateFields);
+            await logResponse('update_card', request.params?.arguments, response.data);
+
             return {
               content: [{
                 type: "text",
-                text: JSON.stringify(response.data, null, 2)
+                text: formatGenericResponse('Update Card', response.data)
               }]
             };
           }
@@ -1033,6 +1053,7 @@ class MetabaseServer {
 
             if (hard_delete) {
               await this.axiosInstance.delete(`/api/card/${card_id}`);
+              await logResponse('delete_card', request.params?.arguments, { card_id, deleted: true });
               return {
                 content: [{
                   type: "text",
@@ -1042,12 +1063,11 @@ class MetabaseServer {
             } else {
               // Soft delete (archive)
               const response = await this.axiosInstance.put(`/api/card/${card_id}`, { archived: true });
+              await logResponse('delete_card', request.params?.arguments, response.data);
               return {
                 content: [{
                   type: "text",
-                  // Metabase might return the updated card object or just a success status.
-                  // If response.data is available and meaningful, include it. Otherwise, a generic success message.
-                  text: response.data ? `Card ${card_id} archived. Details: ${JSON.stringify(response.data, null, 2)}` : `Card ${card_id} archived.`
+                  text: formatGenericResponse('Archive Card', response.data)
                 }]
               };
             }
@@ -1067,10 +1087,12 @@ class MetabaseServer {
             if (collection_id !== undefined) createDashboardBody.collection_id = collection_id;
 
             const response = await this.axiosInstance.post('/api/dashboard', createDashboardBody);
+            await logResponse('create_dashboard', request.params?.arguments, response.data);
+
             return {
               content: [{
                 type: "text",
-                text: JSON.stringify(response.data, null, 2)
+                text: formatGenericResponse('Create Dashboard', response.data)
               }]
             };
           }
@@ -1090,10 +1112,12 @@ class MetabaseServer {
               );
             }
             const response = await this.axiosInstance.put(`/api/dashboard/${dashboard_id}`, updateFields);
+            await logResponse('update_dashboard', request.params?.arguments, response.data);
+
             return {
               content: [{
                 type: "text",
-                text: JSON.stringify(response.data, null, 2)
+                text: formatGenericResponse('Update Dashboard', response.data)
               }]
             };
           }
@@ -1109,6 +1133,7 @@ class MetabaseServer {
 
             if (hard_delete) {
               await this.axiosInstance.delete(`/api/dashboard/${dashboard_id}`);
+              await logResponse('delete_dashboard', request.params?.arguments, { dashboard_id, deleted: true });
               return {
                 content: [{
                   type: "text",
@@ -1118,10 +1143,11 @@ class MetabaseServer {
             } else {
               // Soft delete (archive)
               const response = await this.axiosInstance.put(`/api/dashboard/${dashboard_id}`, { archived: true });
-               return {
+              await logResponse('delete_dashboard', request.params?.arguments, response.data);
+              return {
                 content: [{
                   type: "text",
-                  text: response.data ? `Dashboard ${dashboard_id} archived. Details: ${JSON.stringify(response.data, null, 2)}` : `Dashboard ${dashboard_id} archived.`
+                  text: formatGenericResponse('Archive Dashboard', response.data)
                 }]
               };
             }
