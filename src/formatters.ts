@@ -178,7 +178,9 @@ export function formatQueryResult(result: QueryResult, maxRows: number = 50): st
   });
 
   if (truncated) {
-    output += `\n*Showing first ${maxRows} of ${rows.length} rows*\n`;
+    const hiddenRows = rows.length - maxRows;
+    output += `\n**⚠️ Results truncated**: Showing first ${maxRows} of ${rows.length} rows (${hiddenRows} rows hidden)\n`;
+    output += `*Use \`max_rows: -1\` parameter to see all rows*\n`;
   }
 
   // Add column types
