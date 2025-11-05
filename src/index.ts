@@ -401,6 +401,10 @@ class MetabaseServer {
                     { type: "array", items: { type: "object" } },
                     { type: "object" }
                   ]
+                },
+                max_rows: {
+                  type: "number",
+                  description: "Maximum number of rows to display in output (default: 50, use -1 for all rows)"
                 }
               },
               required: ["card_id"]
@@ -440,6 +444,10 @@ class MetabaseServer {
                   items: {
                     type: "object"
                   }
+                },
+                max_rows: {
+                  type: "number",
+                  description: "Maximum number of rows to display in output (default: 50, use -1 for all rows)"
                 }
               },
               required: ["database_id", "query"]
@@ -912,13 +920,16 @@ class MetabaseServer {
                 : rawParameters
                   ? [rawParameters]
                   : [];
+            const maxRows = typeof request.params?.arguments?.max_rows === 'number'
+              ? request.params.arguments.max_rows
+              : 50;
             const response = await this.axiosInstance.post(`/api/card/${cardId}/query`, { parameters });
             await logResponse('execute_card', request.params?.arguments, response.data);
 
             return {
               content: [{
                 type: "text",
-                text: formatCardResult(response.data)
+                text: formatCardResult(response.data, maxRows === -1 ? Infinity : maxRows)
               }]
             };
           }
@@ -952,6 +963,9 @@ class MetabaseServer {
             const databaseId = request.params?.arguments?.database_id;
             const query = request.params?.arguments?.query;
             const nativeParameters = request.params?.arguments?.native_parameters || [];
+            const maxRows = typeof request.params?.arguments?.max_rows === 'number'
+              ? request.params.arguments.max_rows
+              : 50;
 
             if (!databaseId) {
               throw new McpError(
@@ -984,7 +998,7 @@ class MetabaseServer {
             return {
               content: [{
                 type: "text",
-                text: formatQueryResult(response.data)
+                text: formatQueryResult(response.data, maxRows === -1 ? Infinity : maxRows)
               }]
             };
           }
