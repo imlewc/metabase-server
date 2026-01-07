@@ -361,6 +361,20 @@ class MetabaseServer {
             }
           },
           {
+            name: "get_card",
+            description: "Get a single Metabase question/card by ID with full details including dataset_query with template-tags configuration for variables/filters. Use this to inspect a card before updating it.",
+            inputSchema: {
+              type: "object",
+              properties: {
+                card_id: {
+                  type: "number",
+                  description: "ID of the card/question to retrieve"
+                }
+              },
+              required: ["card_id"]
+            }
+          },
+          {
             name: "execute_card",
             description: "Execute a Metabase question/card and get results",
             inputSchema: {
@@ -435,18 +449,37 @@ class MetabaseServer {
           },
           {
             name: "update_card",
-            description: "Update an existing Metabase question (card).",
+            description: "Update an existing Metabase question (card). For native SQL queries with template variables (like dropdown filters), use dataset_query.native.template-tags to configure each variable. Each template-tag can have: name, display-name, type (text/number/dimension), dimension (for field filters), widget-type (category, string/=, number/=, etc.), and default value.",
             inputSchema: {
               type: "object",
               properties: {
                 card_id: { type: "number", description: "ID of the card to update" },
                 name: { type: "string", description: "New name for the card" },
-                dataset_query: { type: "object", description: "New query for the card" },
+                dataset_query: {
+                  type: "object",
+                  description: "Query configuration. For native SQL: {type: 'native', database: <id>, native: {query: 'SELECT...', template-tags: {...}}}. Template-tags example: {'semester': {id: 'uuid', name: 'semester', display-name: 'Semester', type: 'dimension', dimension: ['field', <field_id>, null], widget-type: 'category'}}",
+                  properties: {
+                    type: { type: "string", description: "'native' for SQL queries, 'query' for MBQL" },
+                    database: { type: "number", description: "Database ID" },
+                    native: {
+                      type: "object",
+                      description: "Native SQL query configuration",
+                      properties: {
+                        query: { type: "string", description: "SQL query with {{variable}} placeholders" },
+                        "template-tags": {
+                          type: "object",
+                          description: "Variable configurations keyed by variable name. Each has: id, name, display-name, type (text/number/dimension), dimension (for field filters as ['field', field_id, null]), widget-type (category/string/=/number/=)"
+                        }
+                      }
+                    }
+                  }
+                },
                 display: { type: "string", description: "New display type" },
                 visualization_settings: { type: "object", description: "New visualization settings" },
                 collection_id: { type: "number", description: "New collection ID" },
                 description: { type: "string", description: "New description" },
-                archived: { type: "boolean", description: "Set to true to archive the card" }
+                archived: { type: "boolean", description: "Set to true to archive the card" },
+                type: { type: "string", description: "Card type: 'question' or 'model'" }
               },
               required: ["card_id"]
             }
@@ -504,6 +537,222 @@ class MetabaseServer {
               },
               required: ["dashboard_id"]
             }
+          },
+          {
+            name: "add_card_to_dashboard",
+            description: "Add a card/question to a dashboard.",
+            inputSchema: {
+              type: "object",
+              properties: {
+                dashboard_id: { type: "number", description: "ID of the dashboard" },
+                card_id: { type: "number", description: "ID of the card to add" },
+                size_x: { type: "number", description: "Width of the card (default: 4)", default: 4 },
+                size_y: { type: "number", description: "Height of the card (default: 3)", default: 3 },
+                row: { type: "number", description: "Row position (default: 0)", default: 0 },
+                col: { type: "number", description: "Column position (default: 0)", default: 0 }
+              },
+              required: ["dashboard_id", "card_id"]
+            }
+          },
+          {
+            name: "list_collections",
+            description: "List all collections in Metabase.",
+            inputSchema: {
+              type: "object",
+              properties: {
+                namespace: { type: "string", description: "Optional namespace filter" }
+              }
+            }
+          },
+          {
+            name: "create_collection",
+            description: "Create a new collection in Metabase.",
+            inputSchema: {
+              type: "object",
+              properties: {
+                name: { type: "string", description: "Name of the collection" },
+                description: { type: "string", description: "Optional description" },
+                color: { type: "string", description: "Optional color (hex code like #509EE3)" },
+                parent_id: { type: "number", description: "Optional parent collection ID for nesting" }
+              },
+              required: ["name"]
+            }
+          },
+          {
+            name: "update_collection",
+            description: "Update a collection in Metabase.",
+            inputSchema: {
+              type: "object",
+              properties: {
+                collection_id: { type: "number", description: "ID of the collection to update" },
+                name: { type: "string", description: "New name for the collection" },
+                description: { type: "string", description: "New description" },
+                color: { type: "string", description: "New color (hex code)" },
+                archived: { type: "boolean", description: "Set to true to archive" }
+              },
+              required: ["collection_id"]
+            }
+          },
+          {
+            name: "list_permission_groups",
+            description: "List all permission groups in Metabase.",
+            inputSchema: {
+              type: "object",
+              properties: {}
+            }
+          },
+          {
+            name: "create_permission_group",
+            description: "Create a new permission group in Metabase.",
+            inputSchema: {
+              type: "object",
+              properties: {
+                name: { type: "string", description: "Name of the permission group" }
+              },
+              required: ["name"]
+            }
+          },
+          {
+            name: "delete_permission_group",
+            description: "Delete a permission group in Metabase.",
+            inputSchema: {
+              type: "object",
+              properties: {
+                group_id: { type: "number", description: "ID of the group to delete" }
+              },
+              required: ["group_id"]
+            }
+          },
+          {
+            name: "get_collection_permissions",
+            description: "Get the collection permissions graph showing which groups have access to which collections.",
+            inputSchema: {
+              type: "object",
+              properties: {}
+            }
+          },
+          {
+            name: "update_collection_permissions",
+            description: "Update collection permissions for a group. Sets the permission level for a group on a collection.",
+            inputSchema: {
+              type: "object",
+              properties: {
+                group_id: { type: "number", description: "ID of the permission group" },
+                collection_id: { type: "number", description: "ID of the collection (use 'root' for root collection)" },
+                permission: { type: "string", description: "Permission level: 'read', 'write', or 'none'" }
+              },
+              required: ["group_id", "collection_id", "permission"]
+            }
+          },
+          {
+            name: "add_user_to_group",
+            description: "Add a user to a permission group.",
+            inputSchema: {
+              type: "object",
+              properties: {
+                group_id: { type: "number", description: "ID of the permission group" },
+                user_id: { type: "number", description: "ID of the user to add" }
+              },
+              required: ["group_id", "user_id"]
+            }
+          },
+          {
+            name: "list_users",
+            description: "List all users in Metabase.",
+            inputSchema: {
+              type: "object",
+              properties: {}
+            }
+          },
+          {
+            name: "get_dashboard",
+            description: "Get full dashboard details including cards and parameters.",
+            inputSchema: {
+              type: "object",
+              properties: {
+                dashboard_id: { type: "number", description: "ID of the dashboard" }
+              },
+              required: ["dashboard_id"]
+            }
+          },
+          {
+            name: "update_dashboard_cards",
+            description: "Update dashboard cards including their parameter mappings. Use this to connect dashboard filters to card variables.",
+            inputSchema: {
+              type: "object",
+              properties: {
+                dashboard_id: { type: "number", description: "ID of the dashboard" },
+                cards: {
+                  type: "array",
+                  description: "Array of card configurations with parameter_mappings",
+                  items: {
+                    type: "object",
+                    properties: {
+                      id: { type: "number", description: "Dashcard ID (not card_id)" },
+                      card_id: { type: "number", description: "Card/Question ID" },
+                      row: { type: "number", description: "Row position" },
+                      col: { type: "number", description: "Column position" },
+                      size_x: { type: "number", description: "Width" },
+                      size_y: { type: "number", description: "Height" },
+                      parameter_mappings: {
+                        type: "array",
+                        description: "Parameter mappings connecting dashboard filters to card variables",
+                        items: {
+                          type: "object",
+                          properties: {
+                            parameter_id: { type: "string", description: "Dashboard parameter ID" },
+                            card_id: { type: "number", description: "Card ID" },
+                            target: { type: "array", description: "Target specification, e.g. ['variable', ['template-tag', 'semester']]" }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              required: ["dashboard_id", "cards"]
+            }
+          },
+          {
+            name: "remove_card_from_dashboard",
+            description: "Remove a card from a dashboard.",
+            inputSchema: {
+              type: "object",
+              properties: {
+                dashboard_id: { type: "number", description: "ID of the dashboard" },
+                dashcard_id: { type: "number", description: "ID of the dashcard (not the card_id)" }
+              },
+              required: ["dashboard_id", "dashcard_id"]
+            }
+          },
+          {
+            name: "add_dashboard_filter",
+            description: "Add or update a filter parameter on a dashboard.",
+            inputSchema: {
+              type: "object",
+              properties: {
+                dashboard_id: { type: "number", description: "ID of the dashboard" },
+                parameters: {
+                  type: "array",
+                  description: "Array of dashboard parameters/filters",
+                  items: {
+                    type: "object",
+                    properties: {
+                      id: { type: "string", description: "Unique parameter ID" },
+                      name: { type: "string", description: "Display name for the filter" },
+                      slug: { type: "string", description: "URL slug for the parameter" },
+                      type: { type: "string", description: "Parameter type, e.g. 'number/=', 'string/=', 'category'" },
+                      values_source_type: { type: "string", description: "Source for dropdown values: 'static-list', 'card', or null" },
+                      values_source_config: {
+                        type: "object",
+                        description: "Configuration for value source. For 'card': {card_id, value_field, label_field}. For 'static-list': {values: [[value, label], ...]}"
+                      }
+                    }
+                  }
+                }
+              },
+              required: ["dashboard_id", "parameters"]
+            }
           }
         ]
       };
@@ -540,6 +789,23 @@ class MetabaseServer {
 
           case "list_databases": {
             const response = await this.axiosInstance.get('/api/database');
+            return {
+              content: [{
+                type: "text",
+                text: JSON.stringify(response.data, null, 2)
+              }]
+            };
+          }
+
+          case "get_card": {
+            const cardId = request.params?.arguments?.card_id;
+            if (!cardId) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "Card ID is required"
+              );
+            }
+            const response = await this.axiosInstance.get(`/api/card/${cardId}`);
             return {
               content: [{
                 type: "text",
@@ -780,7 +1046,312 @@ class MetabaseServer {
               };
             }
           }
-          
+
+          case "add_card_to_dashboard": {
+            const { dashboard_id, card_id, size_x = 4, size_y = 3, row = 0, col = 0 } = request.params?.arguments || {};
+            if (!dashboard_id || !card_id) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "Both dashboard_id and card_id are required"
+              );
+            }
+            // Since Metabase 0.47+, POST /dashboard/:id/cards was removed.
+            // Must use PUT /dashboard/:id with dashcards array. Negative ID = new card.
+            // First get existing dashboard to preserve existing cards
+            const dashboardResponse = await this.axiosInstance.get(`/api/dashboard/${dashboard_id}`);
+            const existingDashcards = dashboardResponse.data.dashcards || [];
+
+            // Add new card with negative ID (signals creation)
+            const newDashcard = {
+              id: -1,
+              card_id: card_id,
+              size_x,
+              size_y,
+              row,
+              col,
+              parameter_mappings: []
+            };
+
+            const response = await this.axiosInstance.put(`/api/dashboard/${dashboard_id}`, {
+              dashcards: [...existingDashcards, newDashcard]
+            });
+            return {
+              content: [{
+                type: "text",
+                text: JSON.stringify(response.data, null, 2)
+              }]
+            };
+          }
+
+          case "list_collections": {
+            const namespace = request.params?.arguments?.namespace;
+            const url = namespace ? `/api/collection?namespace=${namespace}` : '/api/collection';
+            const response = await this.axiosInstance.get(url);
+            return {
+              content: [{
+                type: "text",
+                text: JSON.stringify(response.data, null, 2)
+              }]
+            };
+          }
+
+          case "create_collection": {
+            const { name, description, color, parent_id } = request.params?.arguments || {};
+            if (!name) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "Collection name is required"
+              );
+            }
+            const collectionData: any = { name };
+            if (description) collectionData.description = description;
+            if (color) collectionData.color = color;
+            if (parent_id) collectionData.parent_id = parent_id;
+
+            const response = await this.axiosInstance.post('/api/collection', collectionData);
+            return {
+              content: [{
+                type: "text",
+                text: JSON.stringify(response.data, null, 2)
+              }]
+            };
+          }
+
+          case "update_collection": {
+            const { collection_id, ...updateFields } = request.params?.arguments || {};
+            if (!collection_id) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "Collection ID is required"
+              );
+            }
+            const response = await this.axiosInstance.put(`/api/collection/${collection_id}`, updateFields);
+            return {
+              content: [{
+                type: "text",
+                text: JSON.stringify(response.data, null, 2)
+              }]
+            };
+          }
+
+          case "list_permission_groups": {
+            this.logInfo('Fetching permission groups...');
+            const response = await this.axiosInstance.get('/api/permissions/group');
+            this.logInfo('Permission groups response', { status: response.status, data: response.data });
+            return {
+              content: [{
+                type: "text",
+                text: JSON.stringify(response.data || [], null, 2)
+              }]
+            };
+          }
+
+          case "create_permission_group": {
+            const { name } = request.params?.arguments || {};
+            if (!name) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "Group name is required"
+              );
+            }
+            const response = await this.axiosInstance.post('/api/permissions/group', { name });
+            return {
+              content: [{
+                type: "text",
+                text: JSON.stringify(response.data, null, 2)
+              }]
+            };
+          }
+
+          case "delete_permission_group": {
+            const { group_id } = request.params?.arguments || {};
+            if (!group_id) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "Group ID is required"
+              );
+            }
+            await this.axiosInstance.delete(`/api/permissions/group/${group_id}`);
+            return {
+              content: [{
+                type: "text",
+                text: `Permission group ${group_id} deleted successfully.`
+              }]
+            };
+          }
+
+          case "get_collection_permissions": {
+            const response = await this.axiosInstance.get('/api/collection/graph');
+            return {
+              content: [{
+                type: "text",
+                text: JSON.stringify(response.data, null, 2)
+              }]
+            };
+          }
+
+          case "update_collection_permissions": {
+            const { group_id, collection_id, permission } = request.params?.arguments || {};
+            if (!group_id || collection_id === undefined || !permission) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "group_id, collection_id, and permission are all required"
+              );
+            }
+            // First get current graph
+            const graphResponse = await this.axiosInstance.get('/api/collection/graph');
+            const graph = graphResponse.data as { groups: Record<string, Record<string, string>>, revision: number };
+
+            // Update the specific permission
+            const collKey = collection_id === 0 ? 'root' : String(collection_id);
+            const groupKey = String(group_id);
+            if (!graph.groups[groupKey]) {
+              graph.groups[groupKey] = {};
+            }
+            graph.groups[groupKey][collKey] = permission as string;
+
+            // PUT the updated graph
+            const response = await this.axiosInstance.put('/api/collection/graph', graph);
+            return {
+              content: [{
+                type: "text",
+                text: JSON.stringify(response.data, null, 2)
+              }]
+            };
+          }
+
+          case "add_user_to_group": {
+            const { group_id, user_id } = request.params?.arguments || {};
+            if (!group_id || !user_id) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "Both group_id and user_id are required"
+              );
+            }
+            const response = await this.axiosInstance.post('/api/permissions/membership', {
+              group_id,
+              user_id
+            });
+            return {
+              content: [{
+                type: "text",
+                text: JSON.stringify(response.data, null, 2)
+              }]
+            };
+          }
+
+          case "list_users": {
+            const response = await this.axiosInstance.get('/api/user');
+            return {
+              content: [{
+                type: "text",
+                text: JSON.stringify(response.data, null, 2)
+              }]
+            };
+          }
+
+          case "get_dashboard": {
+            const { dashboard_id } = request.params?.arguments || {};
+            if (!dashboard_id) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "Dashboard ID is required"
+              );
+            }
+            const response = await this.axiosInstance.get(`/api/dashboard/${dashboard_id}`);
+            return {
+              content: [{
+                type: "text",
+                text: JSON.stringify(response.data, null, 2)
+              }]
+            };
+          }
+
+          case "update_dashboard_cards": {
+            const { dashboard_id, cards } = request.params?.arguments || {};
+            if (!dashboard_id) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "Dashboard ID is required"
+              );
+            }
+            if (!cards || !Array.isArray(cards)) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "Cards array is required"
+              );
+            }
+            const response = await this.axiosInstance.put(`/api/dashboard/${dashboard_id}`, {
+              dashcards: cards
+            });
+            return {
+              content: [{
+                type: "text",
+                text: JSON.stringify(response.data, null, 2)
+              }]
+            };
+          }
+
+          case "remove_card_from_dashboard": {
+            const { dashboard_id, dashcard_id } = request.params?.arguments || {};
+            if (!dashboard_id || !dashcard_id) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "Both dashboard_id and dashcard_id are required"
+              );
+            }
+            // Since Metabase 0.47+, DELETE endpoint was removed.
+            // Must use PUT with dashcards array, omitting the card to delete.
+            const dashboardResponse = await this.axiosInstance.get(`/api/dashboard/${dashboard_id}`);
+            const existingDashcards = dashboardResponse.data.dashcards || [];
+            const filteredDashcards = existingDashcards.filter((dc: any) => dc.id !== dashcard_id);
+
+            if (filteredDashcards.length === existingDashcards.length) {
+              return {
+                content: [{
+                  type: "text",
+                  text: `Dashcard ${dashcard_id} not found on dashboard ${dashboard_id}`
+                }],
+                isError: true
+              };
+            }
+
+            await this.axiosInstance.put(`/api/dashboard/${dashboard_id}`, {
+              dashcards: filteredDashcards
+            });
+            return {
+              content: [{
+                type: "text",
+                text: `Dashcard ${dashcard_id} removed from dashboard ${dashboard_id}`
+              }]
+            };
+          }
+
+          case "add_dashboard_filter": {
+            const { dashboard_id, parameters } = request.params?.arguments || {};
+            if (!dashboard_id) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "Dashboard ID is required"
+              );
+            }
+            if (!parameters || !Array.isArray(parameters)) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "Parameters array is required"
+              );
+            }
+            const response = await this.axiosInstance.put(`/api/dashboard/${dashboard_id}`, {
+              parameters
+            });
+            return {
+              content: [{
+                type: "text",
+                text: JSON.stringify(response.data, null, 2)
+              }]
+            };
+          }
+
           default:
             return {
               content: [
