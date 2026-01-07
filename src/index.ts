@@ -92,6 +92,7 @@ class MetabaseServer {
       headers: {
         "Content-Type": "application/json",
       },
+      timeout: 30000, // 30 second timeout to prevent hanging
     });
 
     if (METABASE_API_KEY) {
@@ -662,6 +663,70 @@ class MetabaseServer {
             inputSchema: {
               type: "object",
               properties: {}
+            }
+          },
+          {
+            name: "create_user",
+            description: "Create a new user in Metabase.",
+            inputSchema: {
+              type: "object",
+              properties: {
+                first_name: { type: "string", description: "User's first name" },
+                last_name: { type: "string", description: "User's last name" },
+                email: { type: "string", description: "User's email address (used as login)" },
+                password: { type: "string", description: "User's password (optional - if not provided, user will need to reset)" },
+                group_ids: { type: "array", items: { type: "number" }, description: "Optional array of permission group IDs to add the user to" }
+              },
+              required: ["first_name", "last_name", "email"]
+            }
+          },
+          {
+            name: "update_user",
+            description: "Update an existing user in Metabase.",
+            inputSchema: {
+              type: "object",
+              properties: {
+                user_id: { type: "number", description: "ID of the user to update" },
+                first_name: { type: "string", description: "New first name" },
+                last_name: { type: "string", description: "New last name" },
+                email: { type: "string", description: "New email address" },
+                is_superuser: { type: "boolean", description: "Whether the user should be an admin" },
+                login_attributes: { type: "object", description: "Custom login attributes for the user" }
+              },
+              required: ["user_id"]
+            }
+          },
+          {
+            name: "disable_user",
+            description: "Disable (deactivate) a user in Metabase. This prevents them from logging in but preserves their data.",
+            inputSchema: {
+              type: "object",
+              properties: {
+                user_id: { type: "number", description: "ID of the user to disable" }
+              },
+              required: ["user_id"]
+            }
+          },
+          {
+            name: "remove_user_from_group",
+            description: "Remove a user from a permission group.",
+            inputSchema: {
+              type: "object",
+              properties: {
+                membership_id: { type: "number", description: "ID of the membership to remove (get this from the user's group_ids or list_permission_groups)" }
+              },
+              required: ["membership_id"]
+            }
+          },
+          {
+            name: "get_user",
+            description: "Get details about a specific user including their group memberships.",
+            inputSchema: {
+              type: "object",
+              properties: {
+                user_id: { type: "number", description: "ID of the user to retrieve" }
+              },
+              required: ["user_id"]
             }
           },
           {
@@ -1242,6 +1307,102 @@ class MetabaseServer {
 
           case "list_users": {
             const response = await this.axiosInstance.get('/api/user');
+            return {
+              content: [{
+                type: "text",
+                text: JSON.stringify(response.data, null, 2)
+              }]
+            };
+          }
+
+          case "create_user": {
+            const { first_name, last_name, email, password, group_ids } = request.params?.arguments || {};
+            if (!first_name || !last_name || !email) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "first_name, last_name, and email are required"
+              );
+            }
+            const userData: any = { first_name, last_name, email };
+            if (password) userData.password = password;
+            if (group_ids) userData.group_ids = group_ids;
+
+            const response = await this.axiosInstance.post('/api/user', userData);
+            return {
+              content: [{
+                type: "text",
+                text: JSON.stringify(response.data, null, 2)
+              }]
+            };
+          }
+
+          case "update_user": {
+            const { user_id, ...updateFields } = request.params?.arguments || {};
+            if (!user_id) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "user_id is required"
+              );
+            }
+            if (Object.keys(updateFields).length === 0) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "No fields provided for update"
+              );
+            }
+            const response = await this.axiosInstance.put(`/api/user/${user_id}`, updateFields);
+            return {
+              content: [{
+                type: "text",
+                text: JSON.stringify(response.data, null, 2)
+              }]
+            };
+          }
+
+          case "disable_user": {
+            const { user_id } = request.params?.arguments || {};
+            if (!user_id) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "user_id is required"
+              );
+            }
+            // Metabase uses DELETE on /api/user/:id to deactivate (not permanently delete)
+            await this.axiosInstance.delete(`/api/user/${user_id}`);
+            return {
+              content: [{
+                type: "text",
+                text: `User ${user_id} has been disabled/deactivated.`
+              }]
+            };
+          }
+
+          case "remove_user_from_group": {
+            const { membership_id } = request.params?.arguments || {};
+            if (!membership_id) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "membership_id is required"
+              );
+            }
+            await this.axiosInstance.delete(`/api/permissions/membership/${membership_id}`);
+            return {
+              content: [{
+                type: "text",
+                text: `Membership ${membership_id} removed successfully.`
+              }]
+            };
+          }
+
+          case "get_user": {
+            const { user_id } = request.params?.arguments || {};
+            if (!user_id) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "user_id is required"
+              );
+            }
+            const response = await this.axiosInstance.get(`/api/user/${user_id}`);
             return {
               content: [{
                 type: "text",
