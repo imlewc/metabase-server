@@ -386,8 +386,11 @@ class MetabaseServer {
                   description: "ID of the card/question to execute"
                 },
                 parameters: {
-                  type: "object",
-                  description: "Optional parameters for the query"
+                  description: "Optional parameters for the query. Metabase expects an array; a single object will be wrapped.",
+                  oneOf: [
+                    { type: "array", items: { type: "object" } },
+                    { type: "object" }
+                  ]
                 }
               },
               required: ["card_id"]
@@ -888,7 +891,14 @@ class MetabaseServer {
               );
             }
 
-            const parameters = request.params?.arguments?.parameters || {};
+            const rawParameters = request.params?.arguments?.parameters;
+            const parameters = Array.isArray(rawParameters)
+              ? rawParameters
+              : rawParameters && typeof rawParameters === "object" && Object.keys(rawParameters).length === 0
+                ? []
+                : rawParameters
+                  ? [rawParameters]
+                  : [];
             const response = await this.axiosInstance.post(`/api/card/${cardId}/query`, { parameters });
             
             return {
@@ -909,11 +919,16 @@ class MetabaseServer {
             }
 
             const response = await this.axiosInstance.get(`/api/dashboard/${dashboardId}`);
-            
+            const dashcards =
+              response.data?.ordered_cards ??
+              response.data?.dashcards ??
+              response.data?.cards ??
+              [];
+
             return {
               content: [{
                 type: "text",
-                text: JSON.stringify(response.data.cards, null, 2)
+                text: JSON.stringify(dashcards, null, 2)
               }]
             };
           }
