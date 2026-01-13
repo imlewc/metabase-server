@@ -1,8 +1,4 @@
-[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/imlewc-metabase-server-badge.png)](https://mseep.ai/app/imlewc-metabase-server)
-
 # metabase-server MCP Server
-
-[![smithery badge](https://smithery.ai/badge/@imlewc/metabase-server)](https://smithery.ai/server/@imlewc/metabase-server)
 
 A Model Context Protocol server for Metabase integration.
 
@@ -136,14 +132,14 @@ When a disabled tool is called, the server will return an error message indicati
 
 **macOS/Linux:**
 ```bash
-git clone https://github.com/imlewc/metabase-server.git
+git clone https://github.com/checkandvisit/metabase-server-mcp.git
 cd metabase-server
 ./install.sh
 ```
 
 **Windows (PowerShell as Administrator):**
 ```powershell
-git clone https://github.com/imlewc/metabase-server.git
+git clone https://github.com/checkandvisit/metabase-server-mcp.git
 cd metabase-server
 .\install.ps1
 ```
@@ -158,7 +154,7 @@ The installation script will:
 ### Manual Installation
 
 ```bash
-git clone https://github.com/imlewc/metabase-server.git
+git clone https://github.com/checkandvisit/metabase-server-mcp.git
 cd metabase-server
 npm install
 npm run build
@@ -208,14 +204,6 @@ On Windows: `%APPDATA%/Claude/claude_desktop_config.json`
 ```
 
 Note: You can also set these environment variables in your system instead of in the config file if you prefer.
-
-### Installing via Smithery
-
-To install metabase-server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@imlewc/metabase-server):
-
-```bash
-npx -y @smithery/cli install @imlewc/metabase-server --client claude
-```
 
 ### Debugging
 
