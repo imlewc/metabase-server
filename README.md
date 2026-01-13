@@ -60,6 +60,111 @@ export METABASE_PASSWORD=your_password
 ```
 You can set these environment variables in your shell profile or use a `.env` file with a package like `dotenv`.
 
+### Configuration Generator
+
+**⚡ Quick Method (Recommended - No interaction issues):**
+
+```bash
+npm run config:quick -- <mode> <metabase_url> <api_key>
+```
+
+Modes: `full`, `schema`, `nodata`
+
+Example for no data access:
+```bash
+npm run config:quick -- nodata https://metabase.example.com your_api_key
+```
+
+See [QUICK_START.md](./QUICK_START.md) for detailed instructions.
+
+**🎨 Interactive Methods (may have terminal compatibility issues):**
+
+Standard version (fancy UI):
+```bash
+npm run config
+```
+
+Simple version (basic prompts):
+```bash
+npm run config:simple
+```
+
+The interactive wizards guide you through:
+
+1. **Access Level Selection:**
+   - **Full Access**: All tools enabled
+   - **Schema Only**: Can view structure but not execute data queries (disables `execute_card`, `execute_query`)
+   - **No Data Access**: Can only manage structure, no access to any data or metadata (disables all read/query operations)
+   - **Custom**: Select specific tools to disable with an interactive checklist
+
+2. **Authentication Setup**: Choose between API Key (recommended) or Username/Password
+
+3. **Configuration Generation**: The tool will generate the JSON configuration and show you where to place it
+
+The generator will output a ready-to-use configuration file that you can copy into your Claude Desktop config.
+
+### Disabling Tools
+
+You can disable specific tools to restrict what operations the MCP server can perform. This is useful for security or privacy reasons, such as preventing data access while still allowing schema inspection and card creation.
+
+To disable tools, set the `METABASE_DISABLED_TOOLS` environment variable with a comma-separated list of tool names:
+
+```bash
+export METABASE_DISABLED_TOOLS=execute_card,execute_query
+```
+
+**Common use cases:**
+
+- Disable `execute_card` and `execute_query` to prevent data access while allowing metadata operations
+- Disable `delete_card`, `delete_dashboard` to prevent deletion operations
+- Disable `create_user`, `update_user`, `disable_user` to prevent user management
+
+**Available tools that can be disabled:**
+- Data access: `execute_card`, `execute_query`, `get_dashboard_cards`
+- Card operations: `create_card`, `update_card`, `delete_card`, `get_card`
+- Dashboard operations: `create_dashboard`, `update_dashboard`, `delete_dashboard`, `get_dashboard`, `add_card_to_dashboard`, `remove_card_from_dashboard`, `update_dashboard_cards`, `add_dashboard_filter`
+- Collection operations: `create_collection`, `update_collection`
+- Permission operations: `create_permission_group`, `delete_permission_group`, `update_collection_permissions`, `add_user_to_group`, `remove_user_from_group`
+- User operations: `create_user`, `update_user`, `disable_user`
+- List operations: `list_dashboards`, `list_cards`, `list_databases`, `list_collections`, `list_permission_groups`, `list_users`, `get_user`, `get_collection_permissions`
+
+When a disabled tool is called, the server will return an error message indicating that the tool is disabled.
+
+## Installation
+
+### Quick Installation (Recommended)
+
+**macOS/Linux:**
+```bash
+git clone https://github.com/imlewc/metabase-server.git
+cd metabase-server
+./install.sh
+```
+
+**Windows (PowerShell as Administrator):**
+```powershell
+git clone https://github.com/imlewc/metabase-server.git
+cd metabase-server
+.\install.ps1
+```
+
+The installation script will:
+1. ✅ Check Node.js and npm are installed
+2. ✅ Install dependencies
+3. ✅ Build the project
+4. ✅ Install globally (makes `metabase-server` command available)
+5. ✅ Show next steps for configuration
+
+### Manual Installation
+
+```bash
+git clone https://github.com/imlewc/metabase-server.git
+cd metabase-server
+npm install
+npm run build
+npm link
+```
+
 ## Development
 
 Install dependencies:
@@ -77,12 +182,6 @@ For development with auto-rebuild:
 npm run watch
 ```
 
-## Installation
-```bash
-# Oneliner, suitable for CI environment
-git clone https://github.com/imlewc/metabase-server.git && cd metabase-server && npm i && npm run build && npm link
-```
-
 To use with Claude Desktop, add the server config:
 
 On MacOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
@@ -96,10 +195,12 @@ On Windows: `%APPDATA%/Claude/claude_desktop_config.json`
       "env": {
         "METABASE_URL": "https://your-metabase-instance.com",
         // Use API Key (preferred)
-        "METABASE_API_KEY": "your_metabase_api_key"
+        "METABASE_API_KEY": "your_metabase_api_key",
         // Or Username/Password (if API Key is not set)
         // "METABASE_USERNAME": "your_username",
         // "METABASE_PASSWORD": "your_password"
+        // Optional: Disable specific tools (comma-separated)
+        "METABASE_DISABLED_TOOLS": "execute_card,execute_query"
       }
     }
   }

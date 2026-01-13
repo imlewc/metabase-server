@@ -52,6 +52,9 @@ const METABASE_URL = process.env.METABASE_URL;
 const METABASE_USERNAME = process.env.METABASE_USERNAME;
 const METABASE_PASSWORD = process.env.METABASE_PASSWORD;
 const METABASE_API_KEY = process.env.METABASE_API_KEY;
+const METABASE_DISABLED_TOOLS = process.env.METABASE_DISABLED_TOOLS
+  ? process.env.METABASE_DISABLED_TOOLS.split(',').map(t => t.trim())
+  : [];
 
 if (!METABASE_URL || (!METABASE_API_KEY && (!METABASE_USERNAME || !METABASE_PASSWORD))) {
   throw new Error(
@@ -72,8 +75,10 @@ class MetabaseServer {
   private server: Server;
   private axiosInstance: AxiosInstance;
   private sessionToken: string | null = null;
+  private disabledTools: Set<string>;
 
   constructor() {
+    this.disabledTools = new Set(METABASE_DISABLED_TOOLS);
     this.server = new Server(
       {
         name: "metabase-server",
@@ -111,7 +116,12 @@ class MetabaseServer {
 
     this.setupResourceHandlers();
     this.setupToolHandlers();
-    
+
+    // Log disabled tools if any
+    if (this.disabledTools.size > 0) {
+      this.logInfo('Disabled tools:', { disabledTools: Array.from(this.disabledTools) });
+    }
+
     // Enhanced error handling with logging
     this.server.onerror = (error: Error) => {
       this.logError('Server Error', error);
@@ -122,6 +132,13 @@ class MetabaseServer {
       await this.server.close();
       process.exit(0);
     });
+  }
+
+  /**
+   * Check if a tool is disabled
+   */
+  private isToolDisabled(toolName: string): boolean {
+    return this.disabledTools.has(toolName);
   }
 
   // Add logging utilities
@@ -330,8 +347,7 @@ class MetabaseServer {
   private setupToolHandlers() {
     // No session token needed for listing tools, as it's static data
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
-      return {
-        tools: [
+      const allTools = [
           {
             name: "list_dashboards",
             description: "List all dashboards in Metabase",
@@ -822,12 +838,32 @@ class MetabaseServer {
               required: ["dashboard_id", "parameters"]
             }
           }
-        ]
+        ];
+
+      // Filter out disabled tools
+      const enabledTools = allTools.filter(tool => !this.isToolDisabled(tool.name));
+
+      return {
+        tools: enabledTools
       };
     });
 
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       this.logInfo('Calling tool...', { requestStructure: JSON.stringify(request) });
+
+      // Check if tool is disabled
+      const toolName = request.params?.name;
+      if (toolName && this.isToolDisabled(toolName)) {
+        this.logInfo('Attempted to call disabled tool', { toolName });
+        return {
+          content: [{
+            type: "text",
+            text: `Tool "${toolName}" is disabled. This tool has been disabled via METABASE_DISABLED_TOOLS configuration.`
+          }],
+          isError: true
+        };
+      }
+
       if (!METABASE_API_KEY) {
         await this.getSessionToken();
       }

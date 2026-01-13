@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "metabase-server": {
+      "command": "metabase-server",
+      "env": {
+        "METABASE_URL": "https://your-metabase-instance.com",
+        "METABASE_API_KEY": "your_metabase_api_key"
+      }
+    }
+  }
+}
