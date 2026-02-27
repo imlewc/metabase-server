@@ -116,6 +116,59 @@ To install metabase-server for Claude Desktop automatically via [Smithery](https
 npx -y @smithery/cli install @imlewc/metabase-server --client claude
 ```
 
+### Installing via Claude Code CLI
+
+To install metabase-server for Claude Code CLI:
+
+```bash
+claude mcp add metabase-server -s user \
+  -e METABASE_URL="https://your-metabase-instance.com" \
+  -e METABASE_USERNAME="your-email@example.com" \
+  -e METABASE_PASSWORD="your-password" \
+  -- npx -y @imlewc/metabase-server
+```
+
+Or using API Key (preferred):
+
+```bash
+claude mcp add metabase-server -s user \
+  -e METABASE_URL="https://your-metabase-instance.com" \
+  -e METABASE_API_KEY="your-api-key" \
+  -- npx -y @imlewc/metabase-server
+```
+
+Configuration will be written to `~/.claude.json`:
+
+```json
+{
+  "mcpServers": {
+    "metabase-server": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@imlewc/metabase-server"],
+      "env": {
+        "METABASE_URL": "https://your-metabase-instance.com",
+        "METABASE_USERNAME": "your-email@example.com",
+        "METABASE_PASSWORD": "your-password"
+      }
+    }
+  }
+}
+```
+
+#### Troubleshooting
+
+If MCP server fails to connect, check the logs:
+
+```bash
+cat ~/.claude/debug/latest | grep -i metabase
+```
+
+Common issues:
+- Environment variables not configured (`"env": {}` is empty)
+- Invalid URL format (must include `https://`)
+- Incorrect credentials
+
 ### Debugging
 
 Since MCP servers communicate over stdio, debugging can be challenging. We recommend using the [MCP Inspector](https://github.com/modelcontextprotocol/inspector), which is available as a package script:
