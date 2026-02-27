@@ -1,8 +1,7 @@
 {
-  "name": "metabase-server",
+  "name": "@imlewc/metabase-server",
   "version": "0.1.0",
-  "description": "A Model Context Protocol server",
-  "private": true,
+  "description": "MCP server for interacting with Metabase - provides AI assistants with tools to query, create, and manage dashboards, cards, and databases",
   "type": "module",
   "bin": {
     "metabase-server": "./build/index.js"
