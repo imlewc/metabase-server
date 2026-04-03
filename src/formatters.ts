@@ -195,17 +195,31 @@ export function formatQueryResult(result: QueryResult, maxRows: number = 50): st
 /**
  * Format dashboard cards list
  */
-export function formatDashboardCards(cards: any[]): string {
+export function formatDashboardCards(cards: any[], tabs?: any[]): string {
   if (!Array.isArray(cards) || cards.length === 0) {
     return "No cards found in this dashboard.";
   }
 
+  const hasTabs = Array.isArray(tabs) && tabs.length > 0;
+  const tabMap: Record<number, string> = {};
+  if (hasTabs) {
+    tabs.forEach((tab: any) => {
+      tabMap[tab.id] = tab.name || `Tab ${tab.id}`;
+    });
+  }
+
   let output = `# Dashboard Cards (${cards.length} total)\n\n`;
-  output += "| Card ID | Name | Visualization | Size |\n";
-  output += "|---|---|---|---|\n";
+  if (hasTabs) {
+    output += "| Dashcard ID | Card ID | Name | Visualization | Size | Tab |\n";
+    output += "|---|---|---|---|---|---|\n";
+  } else {
+    output += "| Dashcard ID | Card ID | Name | Visualization | Size |\n";
+    output += "|---|---|---|---|---|\n";
+  }
 
   cards.forEach((dashCard: any) => {
     const card = dashCard.card || {};
+    const dashcardId = dashCard.id || 'unknown';
     const cardId = card.id || 'unknown';
     const cardName = card.name || 'Untitled';
     const vizType = dashCard.visualization_settings?.["card.title"]
@@ -213,8 +227,22 @@ export function formatDashboardCards(cards: any[]): string {
       : (card.display || 'table');
     const size = `${dashCard.size_x || 4}×${dashCard.size_y || 4}`;
 
-    output += `| ${cardId} | ${cardName} | ${vizType} | ${size} |\n`;
+    if (hasTabs) {
+      const tabName = dashCard.dashboard_tab_id ? (tabMap[dashCard.dashboard_tab_id] || `Tab ${dashCard.dashboard_tab_id}`) : 'None';
+      output += `| ${dashcardId} | ${cardId} | ${cardName} | ${vizType} | ${size} | ${tabName} |\n`;
+    } else {
+      output += `| ${dashcardId} | ${cardId} | ${cardName} | ${vizType} | ${size} |\n`;
+    }
   });
+
+  if (hasTabs) {
+    output += `\n## Dashboard Tabs\n\n`;
+    output += "| Tab ID | Name | Position |\n";
+    output += "|---|---|---|\n";
+    tabs.forEach((tab: any, index: number) => {
+      output += `| ${tab.id} | ${tab.name || 'Untitled'} | ${tab.position ?? index} |\n`;
+    });
+  }
 
   return output;
 }

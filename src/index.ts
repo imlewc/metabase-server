@@ -571,7 +571,8 @@ class MetabaseServer {
                 size_x: { type: "number", description: "Width of the card (default: 4)", default: 4 },
                 size_y: { type: "number", description: "Height of the card (default: 3)", default: 3 },
                 row: { type: "number", description: "Row position (default: 0)", default: 0 },
-                col: { type: "number", description: "Column position (default: 0)", default: 0 }
+                col: { type: "number", description: "Column position (default: 0)", default: 0 },
+                dashboard_tab_id: { type: "number", description: "ID of the dashboard tab. Required for tabbed dashboards. Use get_dashboard_cards to find tab IDs." }
               },
               required: ["dashboard_id", "card_id"]
             }
@@ -762,6 +763,17 @@ class MetabaseServer {
             }
           },
           {
+            name: "list_dashboard_tabs",
+            description: "List all tabs of a dashboard. Returns tab IDs, names, and positions.",
+            inputSchema: {
+              type: "object",
+              properties: {
+                dashboard_id: { type: "number", description: "ID of the dashboard" }
+              },
+              required: ["dashboard_id"]
+            }
+          },
+          {
             name: "update_dashboard_cards",
             description: "Update dashboard cards including their parameter mappings. Use this to connect dashboard filters to card variables.",
             inputSchema: {
@@ -780,6 +792,7 @@ class MetabaseServer {
                       col: { type: "number", description: "Column position" },
                       size_x: { type: "number", description: "Width" },
                       size_y: { type: "number", description: "Height" },
+                      dashboard_tab_id: { type: "number", description: "ID of the dashboard tab this card belongs to. Required for tabbed dashboards." },
                       parameter_mappings: {
                         type: "array",
                         description: "Parameter mappings connecting dashboard filters to card variables",
@@ -949,12 +962,13 @@ class MetabaseServer {
               response.data?.dashcards ??
               response.data?.cards ??
               [];
+            const tabs = response.data?.tabs ?? [];
             await logResponse('get_dashboard_cards', request.params?.arguments, dashcards);
 
             return {
               content: [{
                 type: "text",
-                text: formatDashboardCards(dashcards)
+                text: formatDashboardCards(dashcards, tabs)
               }]
             };
           }
@@ -1168,7 +1182,7 @@ class MetabaseServer {
           }
 
           case "add_card_to_dashboard": {
-            const { dashboard_id, card_id, size_x = 4, size_y = 3, row = 0, col = 0 } = request.params?.arguments || {};
+            const { dashboard_id, card_id, size_x = 4, size_y = 3, row = 0, col = 0, dashboard_tab_id } = request.params?.arguments || {};
             if (!dashboard_id || !card_id) {
               throw new McpError(
                 ErrorCode.InvalidParams,
@@ -1180,9 +1194,18 @@ class MetabaseServer {
             // First get existing dashboard to preserve existing cards
             const dashboardResponse = await this.axiosInstance.get(`/api/dashboard/${dashboard_id}`);
             const existingDashcards = dashboardResponse.data.dashcards || [];
+            const dashTabs = dashboardResponse.data.tabs || [];
+
+            // Resolve tab ID: use provided value, or auto-select first tab for tabbed dashboards
+            let resolvedTabId = dashboard_tab_id ?? null;
+            let tabNote = '';
+            if (dashTabs.length > 0 && resolvedTabId === null) {
+              resolvedTabId = dashTabs[0].id;
+              tabNote = `\n\n**Note**: No dashboard_tab_id was provided. Card was automatically added to the first tab "${dashTabs[0].name || 'Tab ' + dashTabs[0].id}" (ID: ${resolvedTabId}).`;
+            }
 
             // Add new card with negative ID (signals creation)
-            const newDashcard = {
+            const newDashcard: any = {
               id: -1,
               card_id: card_id,
               size_x,
@@ -1191,14 +1214,22 @@ class MetabaseServer {
               col,
               parameter_mappings: []
             };
+            if (resolvedTabId !== null) {
+              newDashcard.dashboard_tab_id = resolvedTabId;
+            }
 
-            const response = await this.axiosInstance.put(`/api/dashboard/${dashboard_id}`, {
+            const putBody: any = {
               dashcards: [...existingDashcards, newDashcard]
-            });
+            };
+            if (dashTabs.length > 0) {
+              putBody.tabs = dashTabs;
+            }
+
+            const response = await this.axiosInstance.put(`/api/dashboard/${dashboard_id}`, putBody);
             return {
               content: [{
                 type: "text",
-                text: JSON.stringify(response.data, null, 2)
+                text: JSON.stringify(response.data, null, 2) + tabNote
               }]
             };
           }
@@ -1483,6 +1514,42 @@ class MetabaseServer {
             };
           }
 
+          case "list_dashboard_tabs": {
+            const { dashboard_id } = request.params?.arguments || {};
+            if (!dashboard_id) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "Dashboard ID is required"
+              );
+            }
+            const response = await this.axiosInstance.get(`/api/dashboard/${dashboard_id}`);
+            const tabs = response.data?.tabs ?? [];
+            await logResponse('list_dashboard_tabs', request.params?.arguments, tabs);
+
+            if (!Array.isArray(tabs) || tabs.length === 0) {
+              return {
+                content: [{
+                  type: "text",
+                  text: "This dashboard has no tabs."
+                }]
+              };
+            }
+
+            let output = `# Dashboard Tabs (${tabs.length} total)\n\n`;
+            output += "| Tab ID | Name | Position |\n";
+            output += "|---|---|---|\n";
+            tabs.forEach((tab: any, index: number) => {
+              output += `| ${tab.id} | ${tab.name || 'Untitled'} | ${tab.position ?? index} |\n`;
+            });
+
+            return {
+              content: [{
+                type: "text",
+                text: output
+              }]
+            };
+          }
+
           case "update_dashboard_cards": {
             const { dashboard_id, cards } = request.params?.arguments || {};
             if (!dashboard_id) {
@@ -1497,9 +1564,18 @@ class MetabaseServer {
                 "Cards array is required"
               );
             }
-            const response = await this.axiosInstance.put(`/api/dashboard/${dashboard_id}`, {
+            // Fetch existing dashboard to get tabs
+            const dashboardResponse = await this.axiosInstance.get(`/api/dashboard/${dashboard_id}`);
+            const dashTabs = dashboardResponse.data?.tabs ?? [];
+
+            const putBody: any = {
               dashcards: cards
-            });
+            };
+            if (dashTabs.length > 0) {
+              putBody.tabs = dashTabs;
+            }
+
+            const response = await this.axiosInstance.put(`/api/dashboard/${dashboard_id}`, putBody);
             return {
               content: [{
                 type: "text",
@@ -1520,6 +1596,7 @@ class MetabaseServer {
             // Must use PUT with dashcards array, omitting the card to delete.
             const dashboardResponse = await this.axiosInstance.get(`/api/dashboard/${dashboard_id}`);
             const existingDashcards = dashboardResponse.data.dashcards || [];
+            const dashTabs = dashboardResponse.data.tabs || [];
             const filteredDashcards = existingDashcards.filter((dc: any) => dc.id !== dashcard_id);
 
             if (filteredDashcards.length === existingDashcards.length) {
@@ -1532,9 +1609,14 @@ class MetabaseServer {
               };
             }
 
-            await this.axiosInstance.put(`/api/dashboard/${dashboard_id}`, {
+            const putBody: any = {
               dashcards: filteredDashcards
-            });
+            };
+            if (dashTabs.length > 0) {
+              putBody.tabs = dashTabs;
+            }
+
+            await this.axiosInstance.put(`/api/dashboard/${dashboard_id}`, putBody);
             return {
               content: [{
                 type: "text",
