@@ -49,7 +49,7 @@ enum ErrorCode {
 // 自定义错误类
 class McpError extends Error {
   code: ErrorCode;
-  
+
   constructor(code: ErrorCode, message: string) {
     super(message);
     this.code = code;
@@ -121,7 +121,7 @@ class MetabaseServer {
 
     this.setupResourceHandlers();
     this.setupToolHandlers();
-    
+
     // Enhanced error handling with logging
     this.server.onerror = (error: Error) => {
       this.logError('Server Error', error);
@@ -155,7 +155,7 @@ class MetabaseServer {
   private logError(message: string, error: unknown) {
     const errorObj = error as Error;
     const apiError = error as { response?: { data?: { message?: string } }, message?: string };
-    
+
     const logMessage = {
       timestamp: new Date().toISOString(),
       level: 'error',
@@ -189,10 +189,10 @@ class MetabaseServer {
       });
 
       this.sessionToken = response.data.id;
-      
+
       // 设置默认请求头
       this.axiosInstance.defaults.headers.common['X-Metabase-Session'] = this.sessionToken;
-      
+
       this.logInfo('Successfully authenticated with Metabase');
       return this.sessionToken as string;
     } catch (error) {
@@ -217,7 +217,7 @@ class MetabaseServer {
       try {
         // 获取仪表板列表
         const dashboardsResponse = await this.axiosInstance.get('/api/dashboard');
-        
+
         this.logInfo('Successfully listed resources', { count: dashboardsResponse.data.length });
         // 将仪表板作为资源返回
         return {
@@ -278,7 +278,7 @@ class MetabaseServer {
         if ((match = uri.match(/^metabase:\/\/dashboard\/(\d+)$/))) {
           const dashboardId = match[1];
           const response = await this.axiosInstance.get(`/api/dashboard/${dashboardId}`);
-          
+
           return {
             contents: [{
               uri: request.params?.uri,
@@ -287,12 +287,12 @@ class MetabaseServer {
             }]
           };
         }
-        
+
         // 处理问题/卡片资源
         else if ((match = uri.match(/^metabase:\/\/card\/(\d+)$/))) {
           const cardId = match[1];
           const response = await this.axiosInstance.get(`/api/card/${cardId}`);
-          
+
           return {
             contents: [{
               uri: request.params?.uri,
@@ -301,12 +301,12 @@ class MetabaseServer {
             }]
           };
         }
-        
+
         // 处理数据库资源
         else if ((match = uri.match(/^metabase:\/\/database\/(\d+)$/))) {
           const databaseId = match[1];
           const response = await this.axiosInstance.get(`/api/database/${databaseId}`);
-          
+
           return {
             contents: [{
               uri: request.params?.uri,
@@ -315,7 +315,7 @@ class MetabaseServer {
             }]
           };
         }
-        
+
         else {
           throw new McpError(
             ErrorCode.InvalidRequest,
@@ -972,7 +972,7 @@ class MetabaseServer {
               }]
             };
           }
-          
+
           case "execute_query": {
             const databaseId = request.params?.arguments?.database_id;
             const query = request.params?.arguments?.query;
@@ -1040,7 +1040,7 @@ class MetabaseServer {
             return {
               content: [{
                 type: "text",
-                text: formatGenericResponse('Create Card', response.data)
+                text: formatGenericResponse('Create Card', response.data, METABASE_URL)
               }]
             };
           }
@@ -1065,7 +1065,7 @@ class MetabaseServer {
             return {
               content: [{
                 type: "text",
-                text: formatGenericResponse('Update Card', response.data)
+                text: formatGenericResponse('Update Card', response.data, METABASE_URL)
               }]
             };
           }
@@ -1095,7 +1095,7 @@ class MetabaseServer {
               return {
                 content: [{
                   type: "text",
-                  text: formatGenericResponse('Archive Card', response.data)
+                  text: formatGenericResponse('Archive Card', response.data, METABASE_URL)
                 }]
               };
             }
@@ -1120,7 +1120,7 @@ class MetabaseServer {
             return {
               content: [{
                 type: "text",
-                text: formatGenericResponse('Create Dashboard', response.data)
+                text: formatGenericResponse('Create Dashboard', response.data, METABASE_URL)
               }]
             };
           }
@@ -1145,7 +1145,7 @@ class MetabaseServer {
             return {
               content: [{
                 type: "text",
-                text: formatGenericResponse('Update Dashboard', response.data)
+                text: formatGenericResponse('Update Dashboard', response.data, METABASE_URL)
               }]
             };
           }
@@ -1175,7 +1175,7 @@ class MetabaseServer {
               return {
                 content: [{
                   type: "text",
-                  text: formatGenericResponse('Archive Dashboard', response.data)
+                  text: formatGenericResponse('Archive Dashboard', response.data, METABASE_URL)
                 }]
               };
             }

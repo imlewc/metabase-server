@@ -258,7 +258,7 @@ export function formatCardResult(result: QueryResult, maxRows: number = 50): str
 /**
  * Format generic object response (fallback for CRUD operations)
  */
-export function formatGenericResponse(operation: string, data: any): string {
+export function formatGenericResponse(operation: string, data: any, baseUrl?: string): string {
   let output = `# ${operation} Result\n\n`;
 
   if (typeof data === 'string') {
@@ -269,6 +269,17 @@ export function formatGenericResponse(operation: string, data: any): string {
     // Extract key fields
     if (data.id) output += `- **ID**: ${data.id}\n`;
     if (data.name) output += `- **Name**: ${data.name}\n`;
+
+    if (baseUrl && data.id) {
+      const normalizedBaseUrl = baseUrl.replace(/\/+$/, '');
+      const op = operation.toLowerCase();
+      if (op.includes('dashboard')) {
+        output += `- **URL**: ${normalizedBaseUrl}/dashboard/${data.id}\n`;
+      } else if (op.includes('card') || op.includes('question')) {
+        output += `- **URL**: ${normalizedBaseUrl}/question/${data.id}\n`;
+      }
+    }
+
     if (data.created_at) output += `- **Created**: ${new Date(data.created_at).toISOString()}\n`;
     if (data.updated_at) output += `- **Updated**: ${new Date(data.updated_at).toISOString()}\n`;
 
