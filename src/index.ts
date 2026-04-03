@@ -788,7 +788,7 @@ class MetabaseServer {
                           properties: {
                             parameter_id: { type: "string", description: "Dashboard parameter ID" },
                             card_id: { type: "number", description: "Card ID" },
-                            target: { type: "array", description: "Target specification, e.g. ['variable', ['template-tag', 'semester']]" }
+                            target: { type: "array", description: "Target specification, e.g. ['variable', ['template-tag', 'semester']]", items: {} }
                           }
                         }
                       }
